@@ -2,27 +2,36 @@ package com.app.androidkt.speechapi;
 
 
 import android.Manifest;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AppCompatActivity;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.appcompat.app.AppCompatActivity;
 import android.text.TextUtils;
+import android.util.Log;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity{
 
     public static final String TAG = "MainActivity";
 
-    private static final int RECORD_REQUEST_CODE = 101;
+    public static final int REQUEST_ID_MULTIPLE_PERMISSIONS = 1;
+
     @BindView(R.id.status)
     TextView status;
     @BindView(R.id.textMessage)
@@ -33,7 +42,8 @@ public class MainActivity extends AppCompatActivity {
 
     private List<String> stringList;
     private SpeechAPI speechAPI;
-    private VoiceRecorder mVoiceRecorder;
+    public static VoiceRecorder mVoiceRecorder;
+    public static VoiceRecorder.Callback voiceCallback;
     private final VoiceRecorder.Callback mVoiceCallback = new VoiceRecorder.Callback() {
 
         @Override
@@ -58,7 +68,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
     };
-    private ArrayAdapter adapter;
+    private ArrayAdapter<String> adapter;
     private final SpeechAPI.Listener mSpeechServiceListener =
             new SpeechAPI.Listener() {
                 @Override
@@ -87,10 +97,14 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        if(checkAndRequestPermissions()){
+            startVoiceRecorder();
+        }
+//        voiceCallback = mVoiceCallback;
         ButterKnife.bind(this);
         speechAPI = new SpeechAPI(MainActivity.this);
         stringList = new ArrayList<>();
-        adapter = new ArrayAdapter(this,
+        adapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_list_item_1, stringList);
         listView.setAdapter(adapter);
     }
@@ -115,23 +129,105 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        if (isGrantedPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            startVoiceRecorder();
-        } else {
-            makeRequest(Manifest.permission.RECORD_AUDIO);
-        }
         speechAPI.addListener(mSpeechServiceListener);
     }
 
-    private int isGrantedPermission(String permission) {
-        return ContextCompat.checkSelfPermission(this, permission);
+    private  boolean checkAndRequestPermissions() {
+        int recordAudioPermission = ContextCompat.checkSelfPermission(this,
+                Manifest.permission.RECORD_AUDIO);
+        int writeStoragePermission = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        int readStoragePermission = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
+        int makeCallPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE);
+        List<String> listPermissionsNeeded = new ArrayList<>();
+        if (recordAudioPermission != PackageManager.PERMISSION_GRANTED) {
+            listPermissionsNeeded.add(Manifest.permission.RECORD_AUDIO);
+        }
+        if(readStoragePermission != PackageManager.PERMISSION_GRANTED){
+            listPermissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+        }
+        if (writeStoragePermission != PackageManager.PERMISSION_GRANTED) {
+            listPermissionsNeeded.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        }
+        if (makeCallPermission != PackageManager.PERMISSION_GRANTED) {
+            listPermissionsNeeded.add(Manifest.permission.CALL_PHONE);
+        }
+        if (!listPermissionsNeeded.isEmpty()) {
+            ActivityCompat.requestPermissions(this, listPermissionsNeeded.toArray(new String[listPermissionsNeeded.size()]),REQUEST_ID_MULTIPLE_PERMISSIONS);
+            return false;
+        }
+        return true;
     }
 
-    private void makeRequest(String permission) {
-        ActivityCompat.requestPermissions(this, new String[]{permission}, RECORD_REQUEST_CODE);
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions, @NonNull int[] grantResults) {
+        Log.d(TAG, "Permission callback called-------");
+        switch (requestCode) {
+            case REQUEST_ID_MULTIPLE_PERMISSIONS: {
+
+                Map<String, Integer> perms = new HashMap<>();
+                // Initialize the map with both permissions
+                perms.put(Manifest.permission.RECORD_AUDIO, PackageManager.PERMISSION_GRANTED);
+                perms.put(Manifest.permission.READ_EXTERNAL_STORAGE, PackageManager.PERMISSION_GRANTED);
+                perms.put(Manifest.permission.WRITE_EXTERNAL_STORAGE, PackageManager.PERMISSION_GRANTED);
+                perms.put(Manifest.permission.CALL_PHONE, PackageManager.PERMISSION_GRANTED);
+                // Fill with actual results from user
+                if (grantResults.length > 0) {
+                    for (int i = 0; i < permissions.length; i++)
+                        perms.put(permissions[i], grantResults[i]);
+                    // Check for both permissions
+                    if (perms.get(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                            && perms.get(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+                            && perms.get(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+                            && perms.get(Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED) {
+                        Log.d(TAG, "record_audio, storage and call phone permissions granted");
+                        // process the normal flow
+                        //else any one or both the permissions are not granted
+                        startVoiceRecorder();
+                    } else {
+                        Log.d(TAG, "Some permissions are not granted ask again ");
+                        //permission is denied (this is the first time, when "never ask again" is not checked) so ask again explaining the usage of permission
+//                        // shouldShowRequestPermissionRationale will return true
+                        //show the dialog or snackbar saying its necessary and try again otherwise proceed with setup.
+                        if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.RECORD_AUDIO) || ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_EXTERNAL_STORAGE) || ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                            showDialogOK("Ruhusa za kurekodi sauti na kutumia hifadhi ya simu yako!",
+                                    new DialogInterface.OnClickListener() {
+                                        @Override
+                                        public void onClick(DialogInterface dialog, int which) {
+                                            switch (which) {
+                                                case DialogInterface.BUTTON_POSITIVE:
+                                                    checkAndRequestPermissions();
+                                                    break;
+                                                case DialogInterface.BUTTON_NEGATIVE:
+                                                    // proceed with logic by disabling the related features or quit the app.
+                                                    break;
+                                            }
+                                        }
+                                    });
+                        }
+                        //permission is denied (and never ask again is  checked)
+                        //shouldShowRequestPermissionRationale will return false
+                        else {
+                            Toast.makeText(this, "Nenda kwenye settings uruhusu hizi ruhusa!", Toast.LENGTH_LONG)
+                                    .show();
+                            //                            //proceed with logic by disabling the related features or quit the app.
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    private void startVoiceRecorder() {
+    private void showDialogOK(String message, DialogInterface.OnClickListener okListener) {
+        new AlertDialog.Builder(this)
+                .setMessage(message)
+                .setPositiveButton("OK", okListener)
+                .setNegativeButton("Cancel", okListener)
+                .create()
+                .show();
+    }
+
+    public void startVoiceRecorder() {
         if (mVoiceRecorder != null) {
             mVoiceRecorder.stop();
         }
@@ -139,23 +235,10 @@ public class MainActivity extends AppCompatActivity {
         mVoiceRecorder.start();
     }
 
-    private void stopVoiceRecorder() {
+    public void stopVoiceRecorder() {
         if (mVoiceRecorder != null) {
             mVoiceRecorder.stop();
             mVoiceRecorder = null;
         }
     }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        if (requestCode == RECORD_REQUEST_CODE) {
-            if (grantResults.length == 0 && grantResults[0] == PackageManager.PERMISSION_DENIED
-                    && grantResults[0] == PackageManager.PERMISSION_DENIED) {
-                finish();
-            } else {
-                startVoiceRecorder();
-            }
-        }
-    }
-
 }

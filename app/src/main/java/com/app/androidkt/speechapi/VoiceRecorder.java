@@ -19,7 +19,7 @@ package com.app.androidkt.speechapi;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 
 /**

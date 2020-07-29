@@ -3,7 +3,9 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/SpeechAPI.iml" filepath="$PROJECT_DIR$/SpeechAPI.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/SpeechAPI-app.iml" filepath="$PROJECT_DIR$/app/SpeechAPI-app.iml" group="SpeechAPI/app" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mikey-SpeechAPI.iml" filepath="$PROJECT_DIR$/mikey-SpeechAPI.iml" group="SpeechAPI" />
     </modules>
   </component>
 </project>

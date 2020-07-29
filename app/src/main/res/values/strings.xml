@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">SpeechAPI</string>
+    <string name="app_name">OnaPlus</string>
+    <string name="record_audio_permission_msg">App hii inahitaji kurekodi na kutambua sauti yako.</string>
+    <string name="storage_permission">App hii inahitaji kuandika na kusoma hifadhi ya simu yako.</string>
 </resources>
